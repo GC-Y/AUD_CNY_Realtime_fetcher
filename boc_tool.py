@@ -30,7 +30,7 @@ while True:
     now_time = datetime.now().strftime("%H:%M:%S")
     
     if boc_aud_rate != last_printed_rate:  # Check if the fetched rate is different from the last printed rate
-        print(f'Rate：{boc_aud_rate}, Time：{now_time}, Date：{now_date}')
+        print(f'Price：{boc_aud_rate}, Time：{now_time}, Date：{now_date}')
         last_printed_rate = boc_aud_rate  # Update the last printed rate
     
     sleep_time = random.uniform(60, 90)
