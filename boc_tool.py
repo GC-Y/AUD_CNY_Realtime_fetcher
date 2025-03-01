@@ -29,17 +29,25 @@ def sleep_with_progress(sleep_time):
 
 def log_to_csv(rate, time_str, date_str, filename):
     file_exists = os.path.isfile(filename)
+
     with open(filename, mode='a', newline='') as file:
         writer = csv.writer(file)
         if not file_exists:
             writer.writerow(['Price', 'Time', 'Date'])  # Write the header if the file doesn't exist
         writer.writerow([rate, time_str, date_str])
 
+
+
 last_printed_rate = None  # Initialize variable to store the last printed rate
+
+# Check if there is a folder called "log_history" kn the current dir, will create one if not.
+folder = "log_history"
+if not os.path.exists(folder):
+    os.makedirs(folder)
 
 # Generate the filename based on the current date and time
 current_datetime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-filename = f"log_{current_datetime}.csv"
+filename = os.path.join(folder, f"log_{current_datetime}.csv")
 
 kylc_url = "https://www.kylc.com/bank/rmbfx/b-boc.html"
 boc_url = "https://www.boc.cn/sourcedb/whpj/"
