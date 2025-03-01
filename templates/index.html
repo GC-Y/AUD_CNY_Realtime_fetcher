@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AUD to CNY Exchange Rate Monitor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .rate-display {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        .last-updated {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+        @media (max-width: 768px) {
+            .rate-display {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4 text-center">AUD to CNY Exchange Rate Monitor</h1>
+        
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Current Rate</h5>
+                        <div class="rate-display" id="current-rate">--</div>
+                        <div class="mt-2">1 AUD = <span id="current-rate-value">--</span> CNY</div>
+                        <div class="last-updated mt-2">Last updated: <span id="last-updated">--</span></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Rate Trend</h5>
+                        <div id="rate-trend">
+                            <span class="text-muted" id="trend-text">Loading trend data...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Historical Chart</h5>
+                <div class="chart-container">
+                    <canvas id="rateChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Recent Rate Changes</h5>
+                <div class="d-flex justify-content-between mb-2">
+                    <span id="history-count">Loading history...</span>
+                    <div class="btn-group" role="group">
+                        <button id="show-more-btn" class="btn btn-sm btn-outline-primary">Show More</button>
+                        <button id="show-less-btn" class="btn btn-sm btn-outline-secondary">Show Less</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Rate</th>
+                                <th>Change</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table">
+                            <tr>
+                                <td colspan="4" class="text-center">Loading history...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Chart initialization
+        let rateChart;
+        
+        // Function to initialize the chart
+        function initChart(data) {
+            const ctx = document.getElementById('rateChart').getContext('2d');
+            
+            // Extract the data
+            const labels = data.map(item => `${item.date} ${item.time}`);
+            const rates = data.map(item => item.price);
+            
+            // Create the chart
+            rateChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'AUD to CNY Rate',
+                        data: rates,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Function to update the chart
+        function updateChart(data) {
+            if (rateChart) {
+                rateChart.data.labels = data.map(item => `${item.date} ${item.time}`);
+                rateChart.data.datasets[0].data = data.map(item => item.price);
+                rateChart.update();
+            } else {
+                initChart(data);
+            }
+        }
+        
+        // Function to update the trend information
+        function updateTrend(data) {
+            if (data.length < 2) {
+                document.getElementById('trend-text').textContent = 'Not enough data to calculate trend';
+                return;
+            }
+            
+            const latestRate = data[data.length - 1].price;
+            const previousRate = data[data.length - 2].price;
+            const difference = latestRate - previousRate;
+            const percentChange = (difference / previousRate) * 100;
+            
+            let trendHTML = '';
+            if (difference > 0) {
+                trendHTML = `<span class="text-success">↑ Increasing: +${difference.toFixed(4)} CNY (${percentChange.toFixed(2)}%)</span>`;
+            } else if (difference < 0) {
+                trendHTML = `<span class="text-danger">↓ Decreasing: ${difference.toFixed(4)} CNY (${percentChange.toFixed(2)}%)</span>`;
+            } else {
+                trendHTML = `<span class="text-warning">→ Stable: No change</span>`;
+            }
+            
+            document.getElementById('rate-trend').innerHTML = trendHTML;
+        }
+        
+        // Variables for history display
+        let historyData = [];
+        let visibleEntries = 10;
+        
+        // Function to populate history table with change calculations
+        function populateHistoryTable(data) {
+            historyData = data.slice();
+            
+            // Update the history count display
+            document.getElementById('history-count').textContent = `Showing ${Math.min(visibleEntries, historyData.length)} of ${historyData.length} entries`;
+            
+            const tableBody = document.getElementById('history-table');
+            tableBody.innerHTML = '';
+            
+            // Display only the visible number of entries in reverse order (newest first)
+            historyData.slice().reverse().slice(0, visibleEntries).forEach((item, index, arr) => {
+                const row = document.createElement('tr');
+                
+                // Calculate change from previous entry if not the first item
+                let changeHTML = '<td>-</td>';
+                if (index < arr.length - 1) {
+                    const prevItem = arr[index + 1];
+                    const change = item.price - prevItem.price;
+                    const changePercent = (change / prevItem.price) * 100;
+                    
+                    let changeClass = 'text-warning';
+                    let changeSymbol = '→';
+                    
+                    if (change > 0) {
+                        changeClass = 'text-success';
+                        changeSymbol = '↑';
+                    } else if (change < 0) {
+                        changeClass = 'text-danger';
+                        changeSymbol = '↓';
+                    }
+                    
+                    changeHTML = `<td class="${changeClass}">${changeSymbol} ${change.toFixed(4)} (${changePercent.toFixed(2)}%)</td>`;
+                }
+                
+                row.innerHTML = `
+                    <td>${item.date}</td>
+                    <td>${item.time}</td>
+                    <td>${item.price.toFixed(4)}</td>
+                    ${changeHTML}
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+        
+        // Event listeners for show more/less buttons
+        document.getElementById('show-more-btn').addEventListener('click', function() {
+            visibleEntries += 10;
+            if (visibleEntries > historyData.length) {
+                visibleEntries = historyData.length;
+            }
+            populateHistoryTable(historyData);
+        });
+        
+        document.getElementById('show-less-btn').addEventListener('click', function() {
+            visibleEntries = Math.max(10, visibleEntries - 10);
+            populateHistoryTable(historyData);
+        });
+        
+        // Function to fetch the latest data
+        function fetchLatestData() {
+            fetch('/api/latest')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.price !== null) {
+                        document.getElementById('current-rate').textContent = data.price.toFixed(4);
+                        document.getElementById('current-rate-value').textContent = data.price.toFixed(4);
+                        document.getElementById('last-updated').textContent = `${data.date} ${data.time}`;
+                        
+                        if (data.history && data.history.length > 0) {
+                            updateChart(data.history);
+                            updateTrend(data.history);
+                            populateHistoryTable(data.history);
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                });
+        }
+        
+        // Initial data fetch
+        fetchLatestData();
+        
+        // Refresh data every 30 seconds
+        setInterval(fetchLatestData, 30000);
+    </script>
+</body>
+</html>
